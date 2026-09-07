@@ -1,0 +1,54 @@
+name: Auto-Debug Agent
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-and-debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project dependencies
+        run: |
+          pip install -r requirements.txt || true
+          pip install pytest
+
+      - name: Run tests
+        id: run_tests
+        continue-on-error: true
+        run: |
+          pytest --tb=long -q 2>&1 | tee result.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Call debug agent on failure
+        if: steps.run_tests.outputs.exit_code != '0'
+        env:
+          AGENT_URL: ${{ secrets.AGENT_URL }}
+        run: |
+          LOG_CONTENT=$(cat result.log)
+          curl -s -X POST "$AGENT_URL/debug/from-log" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+                  --arg repo "${{ github.repository }}" \
+                  --arg branch "${{ github.ref_name }}" \
+                  --arg log "$LOG_CONTENT" \
+                  '{repo: $repo, branch: $branch, pytest_log: $log}')" \
+            | tee agent_result.json
+
+      - name: Upload agent result
+        if: steps.run_tests.outputs.exit_code != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-result
+          path: agent_result.json
