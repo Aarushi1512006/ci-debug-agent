@@ -120,7 +120,7 @@ python -m pytest tests/ -v
 These safety limits prevent accidental commits or destructive changes:
 
 - **Max 2 fix attempts** per failure before posting a comment and bailing
-- **Protected paths:** Never modifies `.github/workflows/`, `.env`, `secrets/`, or config files
+- **Protected paths:** Never modifies `.github/workflows/`, `.env`, `secrets/`, or config files 
 - **Python only:** Only edits `.py` files
 - **Exact match patching:** The LLM's `original_snippet` must match the file *exactly*; fuzzy matching is disabled to avoid silent corruption
 - **Disposable testing:** Every fix is re-verified on an ephemeral `agent-fix/*` branch before opening a PR; nothing is pushed to `main` directly
